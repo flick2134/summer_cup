@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>A1 Cell Viewer (GViz)</title>
+  <style>
+      @font-face {
+      font-family: 'MicrogrammaD';
+      src: url('Microgramma D Extended Bold.otf') format('opentype');
+    }
+
+      @font-face {
+      font-family: 'Norwester';
+      src: url('norwester.otf') format('opentype');
+    }
+
+    body {
+      font-family: 'Norwester', Arial, sans-serif;
+      background: #111;
+      color: rgb(255, 255, 255);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    #a1-text {
+      font-size: 2rem;
+      padding: 20px;
+      border: 0px dashed #0f0;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="a1-text">Loading A1 content...</div>
+
+  <script>
+    async function fetchA1() {
+      const gvizUrl = "https://docs.google.com/spreadsheets/d/1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A/gviz/tq?tq=select A&gid=810975219";
+
+      try {
+        const response = await fetch(gvizUrl);
+        const text = await response.text();
+
+        // Parse JSON embedded in the JavaScript response
+        const json = JSON.parse(text.substring(47).slice(0, -2));
+        const a1 = json.table.rows[0].c[0]?.v || "A1 is empty";
+        document.getElementById("a1-text").innerText = a1;
+      } catch (err) {
+        document.getElementById("a1-text").innerText = "Failed to load A1.";
+        console.error("Error fetching A1 from GViz:", err);
+      }
+    }
+
+    fetchA1();
+    setInterval(fetchA1, 3000); // Update every 3 seconds
+  </script>
+</body>
+</html>

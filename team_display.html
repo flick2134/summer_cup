@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Team Display</title>
+  <style>
+    @font-face {
+      font-family: 'MicrogrammaD';
+      src: url('Microgramma D Extended Bold.otf') format('opentype');
+    }
+    body {
+      margin: 0;
+      background: #0b0b0b;
+      font-family: 'MicrogrammaD', sans-serif;
+      letter-spacing: 2px;
+      font-size: 20px;
+      overflow: hidden;
+    }
+    .team-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+    .team-card {
+      width: 200px;
+      height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .logo-box {
+      background: #fff;
+      width: 100%;
+      height: 150px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border-radius: 0px;
+      clip-path: polygon(20px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 20px);
+    }
+    .logo-box img {
+      max-width: 85%;
+      max-height: 85%;
+    }
+    .name-box {
+      background: linear-gradient(135deg, #001d52, #00249b);
+      color: #fff;
+      width: 100%;
+      text-align: center;
+      font-weight: bold;
+      padding: 10px 0;
+      border-radius: 0px;
+      clip-path: polygon(0 0, 100% 0, 100% calc(100% - 20px), calc(100% - 20px) 100%, 0 100%);
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="teams" class="team-container"></div>
+  </div>
+
+  <script>
+    const SHEET_ID = '1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A';
+    const GID = '1575538430';
+    const FETCH_INTERVAL = 10000;       // fetch every 10s
+    const DISPLAY_TIME = 4000;          // time the frame stays visible
+    const FADE_DURATION = 1000;         // fade in/out duration
+    const CYCLE_INTERVAL = DISPLAY_TIME + FADE_DURATION * 2;
+
+    let currentIndex = 0;
+    let teamSets = [];
+
+    async function fetchData() {
+      try {
+        const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&gid=${GID}`;
+        const res = await fetch(url);
+        const text = await res.text();
+        const json = JSON.parse(text.substring(47, text.length - 2));
+        const rows = json.table.rows;
+
+        const teams = [];
+        for (const row of rows) {
+          const teamCell = row.c[1];
+          const logoCell = row.c[2];
+          if (!teamCell) continue;
+          teams.push({ name: teamCell.v, logo: logoCell ? logoCell.v : null });
+        }
+
+        const newSets = [];
+        for (let i = 0; i < teams.length; i += 6) {
+          newSets.push(teams.slice(i, i + 6));
+        }
+
+        teamSets = newSets;
+        if (currentIndex >= teamSets.length) {
+          currentIndex = 0;
+        }
+      } catch (e) {
+        console.error('Fetch error:', e);
+      }
+    }
+
+    function showSet() {
+      const container = document.getElementById('teams');
+      if (teamSets.length === 0) return;
+
+      const set = teamSets[currentIndex];
+      container.style.opacity = 0;
+
+      setTimeout(() => {
+        container.innerHTML = '';
+        set.forEach(team => {
+          const card = document.createElement('div');
+          card.className = 'team-card';
+
+          const logoBox = document.createElement('div');
+          logoBox.className = 'logo-box';
+          if (team.logo) {
+            const img = document.createElement('img');
+            img.src = team.logo;
+            logoBox.appendChild(img);
+          }
+
+          const nameBox = document.createElement('div');
+          nameBox.className = 'name-box';
+          nameBox.textContent = team.name;
+
+          card.append(logoBox, nameBox);
+          container.appendChild(card);
+        });
+
+        container.style.opacity = 1;
+
+        // Move to next set for next cycle
+        currentIndex = (currentIndex + 1) % teamSets.length;
+      }, FADE_DURATION); // wait for fade-out to complete
+    }
+
+    window.onload = () => {
+      fetchData().then(() => showSet());
+      setInterval(fetchData, FETCH_INTERVAL);
+      setInterval(showSet, CYCLE_INTERVAL);
+    };
+  </script>
+</body>
+</html>

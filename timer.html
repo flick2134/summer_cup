@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Countdown Timer</title>
+  <style>
+     @font-face {
+      font-family: 'AmericanCaptain';
+      src: url('American Captain Patrius 02 FRE.otf') format('opentype');
+    }
+
+     @font-face {
+      font-family: 'Norwester';
+      src: url('norwester.otf') format('opentype');
+    }
+
+    body {
+      background-color: black;
+      color: rgb(255, 255, 255);
+      font-size: 80px;
+      font-family: 'Norwester', Arial, sans-serif;
+      text-align: center;
+      margin-top: 100px;
+    }
+  </style>
+</head>
+<body>
+  <div id="timer">30:00</div>
+
+  <script>
+    const SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A/gviz/tq?tqx=out:json&gid=1211930963";
+    let countdownInterval = null;
+    let remainingTime = 30 * 60;
+    let timerRunning = false;
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const secs = (seconds % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function updateDisplay() {
+      document.getElementById("timer").textContent = formatTime(remainingTime);
+    }
+
+    function startCountdown() {
+      if (timerRunning) return;
+      timerRunning = true;
+      countdownInterval = setInterval(() => {
+        remainingTime--;
+        updateDisplay();
+        if (remainingTime <= 0) {
+          clearInterval(countdownInterval);
+          timerRunning = false;
+        }
+      }, 1000);
+    }
+
+    function resetCountdown() {
+      clearInterval(countdownInterval);
+      timerRunning = false;
+      remainingTime = 30 * 60;
+      updateDisplay();
+    }
+
+    async function checkCheckbox() {
+      try {
+        const res = await fetch(SPREADSHEET_URL);
+        const text = await res.text();
+        const json = JSON.parse(text.substr(47).slice(0, -2));
+        const cellValue = json.table.rows[0].c[0]?.v;
+
+        if (cellValue === true) {
+          if (!timerRunning) startCountdown();
+        } else {
+          if (timerRunning) resetCountdown();
+        }
+      } catch (e) {
+        console.error("Failed to fetch sheet data:", e);
+      }
+    }
+
+    updateDisplay(); // Initial display
+
+    setInterval(checkCheckbox, 3000); // Poll every 3 seconds
+  </script>
+</body>
+</html>

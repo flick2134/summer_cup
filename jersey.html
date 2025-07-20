@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Photo Slideshow</title>
+  <style>
+    body {
+      margin: 0;
+      background: black;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #photo {
+      max-width: 90vw;
+      max-height: 90vh;
+      position: absolute;
+      opacity: 0;
+      transition: opacity 1s ease-in-out;
+    }
+  </style>
+</head>
+<body>
+  <img id="photo" src="" alt="Slideshow" />
+
+  <script>
+    const sheetID = '1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A';
+    const sheetGID = '455669537';
+    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tq=SELECT A&gid=${sheetGID}`;
+
+    const img = document.getElementById('photo');
+    let images = [];
+    let currentIndex = 0;
+
+    function parseGvizResponse(text) {
+      const jsonText = text.match(/google\.visualization\.Query\.setResponse\(([\s\S]+?)\);?$/)[1];
+      return JSON.parse(jsonText);
+    }
+
+    function fetchImages() {
+      fetch(url)
+        .then(res => res.text())
+        .then(text => {
+          const data = parseGvizResponse(text);
+          const rows = data.table.rows;
+          images = rows.map(row => row.c[0]?.v).filter(Boolean);
+          if (images.length > 0) {
+            runSlideshow();
+          } else {
+            console.error("No valid image URLs found.");
+          }
+        })
+        .catch(err => console.error("Failed to fetch sheet:", err));
+    }
+
+    function runSlideshow() {
+      function showImage(index) {
+        img.style.opacity = 0;
+
+        setTimeout(() => {
+          img.src = images[index];
+          img.onload = () => {
+            img.style.opacity = 1;
+
+            setTimeout(() => {
+              img.style.opacity = 0;
+
+              setTimeout(() => {
+                showImage((index + 1) % images.length);
+              }, 1000); // Wait for fade-out
+            }, 5000); // Show duration
+          };
+        }, 1000); // Wait for fade-out before switching src
+      }
+
+      showImage(currentIndex);
+    }
+
+    fetchImages();
+  </script>
+</body>
+</html>

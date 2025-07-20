@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Team Status</title>
+  <style>
+    :root {
+      --dead-text-color: #888888;
+      --dead-indicator-color: #810000;
+      --dead-card-color: #070707;
+      --dead-logo-opacity: 0.5;
+    }
+
+    @font-face {
+      font-family: 'MicrogrammaD';
+      src: url('Microgramma D Extended Bold.otf') format('opentype');
+    }
+
+    @font-face {
+      font-family: 'EngraversGothic';
+      src: url('Engravers Gothic Regular.otf') format('opentype');
+    }
+
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: 'EngraversGothic', 'MicrogrammaD', Arial, sans-serif;
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .header, .team, .legend {
+      transition: transform 0.6s ease, opacity 0.6s ease;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      padding: 4px 8px;
+      color: #0bbaff;
+      background: #0f0f0f;
+      margin: 0 8px 0;
+      border-bottom: 0.5px solid #ffffff;
+      font-size: 12px;
+    }
+
+    .header .left, .team .left {
+      flex: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .header .rank, .team .rank {
+  width: 40px; /* increase if needed for spacing */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+    .header .placeholder, .team .placeholder, .team img {
+      width: 24px;
+      height: 24px;
+      object-fit: cover;
+      border-radius: 3px;
+      margin-right: 6px;
+      opacity: 1;
+    }
+
+    .header .name, .team .name {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 2px;
+      text-align: left;
+    }
+
+    .header .status-header {
+      width: 64px;
+      text-align: center;
+      margin-right: 8px;
+    }
+
+    .header .fin, .team .fin {
+      width: 36px;
+      text-align: center;
+    }
+
+    .container {
+      padding: 0 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .team {
+      display: flex;
+      align-items: center;
+      padding: 4px 8px;
+      background: #0f0f0f;
+      border-bottom: 1px solid rgba(255,255,255,1);
+      font-size: 16px;
+    }
+
+    .team .status {
+      width: 64px;
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      margin-right: 8px;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 4px;
+      height: 16px;
+      background: #444;
+    }
+
+    .dot.alive {
+      background: #ffffff;
+    }
+
+    .dot.dead {
+      background: #e20000;
+    }
+
+    .team.deadAll {
+      background-color: var(--dead-card-color);
+      border-bottom: 1px solid rgba(255,255,255,0.4);
+    }
+
+    .team.deadAll .rank,
+    .team.deadAll .name,
+    .team.deadAll .fin {
+      color: var(--dead-text-color);
+    }
+
+    .team.deadAll .dot {
+      background: var(--dead-indicator-color);
+    }
+
+    .team.deadAll .placeholder,
+    .team.deadAll img {
+      opacity: var(--dead-logo-opacity);
+    }
+
+    .legend {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      gap: 24px;
+      margin: 0 8px;
+      background: #0c0c0c;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+    }
+
+    .legend-item .box {
+      width: 12px;
+      height: 12px;
+      border: 1px solid #ffffff;
+      background: #ffffff;
+    }
+
+    .legend-item.eliminated .box {
+      background: #e20000;
+    }
+
+    .legend-item span {
+      color: #ffffff;
+      letter-spacing: 1px;
+    }
+
+    .slide-out {
+      transform: translateX(200%);
+      opacity: 0;
+    }
+
+    .slide-in {
+      transform: translateX(0%);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="header" id="headerRow">
+    <div class="left">
+      <div class="rank">#</div>
+      <div class="placeholder"></div>
+      <div class="name">TEAM</div>
+    </div>
+    <div class="status-header">STATUS</div>
+    <div class="fin">FIN.</div>
+  </div>
+
+  <div class="container" id="container"></div>
+
+  <div class="legend" id="legendCard">
+    <div class="legend-item">
+      <div class="box"></div>
+      <span>ALIVE</span>
+    </div>
+    <div class="legend-item eliminated">
+      <div class="box"></div>
+      <span>ELIMINATED</span>
+    </div>
+  </div>
+
+  <script>
+    const SHEET_ID = '1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A';
+    const GID = '38258553';
+    const INTERVAL = 1000;
+    let eliminationOrder = [];
+    let animationTriggered = false;
+  
+    async function fetchAndRender() {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${GID}&_=${Date.now()}`;
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        const text = await res.text();
+        const json = JSON.parse(text.match(/\{.*\}/s)[0]);
+        const rows = json.table.rows || [];
+  
+        const teams = rows.map(r => {
+          const name = r.c[0]?.v?.trim() || '';
+          const logo = r.c[1]?.v || '';
+          const fin  = Number(r.c[2]?.v) || 0;
+          const stats = [3, 4, 5, 6].map(i =>
+            (r.c[i]?.v || '').toString().trim().toLowerCase()
+          );
+          const alive = stats.filter(s => s === 'alive').length;
+          const deadAll = (alive === 0);
+          return { name, logo, fin, stats, alive, deadAll };
+        }).filter(t => t.name);
+  
+        const currentDead = teams.filter(t => t.deadAll).map(t => t.name);
+        eliminationOrder = eliminationOrder.filter(name =>
+          currentDead.includes(name)
+        );
+        currentDead.forEach(name => {
+          if (!eliminationOrder.includes(name)) {
+            eliminationOrder.push(name);
+          }
+        });
+  
+        const liveTeams = teams.filter(t => !t.deadAll)
+                               .sort((a, b) => b.alive - a.alive);
+        const deadTeams = eliminationOrder
+                             .map(name => teams.find(t => t.name === name))
+                             .filter(Boolean);
+        const fullOrder = [...liveTeams, ...deadTeams.reverse()];
+  
+        const container = document.getElementById('container');
+
+// Only render if animation hasn't started
+if (!animationTriggered) {
+  container.innerHTML = fullOrder.map((t, i) => {
+    const dots = t.stats.map(s =>
+      `<span class="dot ${s === 'alive' ? 'alive' : 'dead'}"></span>`
+    ).join('');
+    const deadClass = t.deadAll ? ' deadAll' : '';
+    return `
+      <div class="team${deadClass}" data-index="${i}">
+        <div class="left">
+          <div class="rank">${i + 1}</div>
+          ${t.logo
+            ? `<img src="${t.logo}" onerror="this.style.display='none'">`
+            : `<div class="placeholder"></div>`}
+          <div class="name">${t.name}</div>
+        </div>
+        <div class="status">${dots}</div>
+        <div class="fin">${t.fin}</div>
+      </div>
+    `;
+  }).join('');
+}
+  
+        // ✅ Trigger animation ONCE when only 4 teams are alive
+        if (!animationTriggered && liveTeams.length === 4) {
+          animationTriggered = true;
+  
+          const teamCards = [...document.querySelectorAll('.team')].reverse();
+          const legend = document.getElementById('legendCard');
+          const header = document.getElementById('headerRow');
+  
+          legend.classList.add('slide-out');
+  
+          teamCards.forEach((card, i) => {
+            setTimeout(() => card.classList.add('slide-out'), (i + 1) * 200);
+          });
+  
+          setTimeout(() => header.classList.add('slide-out'), (teamCards.length + 1) * 200);
+        }
+      } catch (err) {
+        console.error('Error fetching/rendering:', err);
+      }
+    }
+  
+    fetchAndRender();
+    setInterval(fetchAndRender, INTERVAL);
+  </script>  
+</body>
+</html>

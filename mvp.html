@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>MVP Card</title>
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <script>
+    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.setOnLoadCallback(init);
+
+    let players = [];
+
+    function init() {
+      const query = new google.visualization.Query(
+        'https://docs.google.com/spreadsheets/d/1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A/gviz/tq?tq=SELECT%20*%20WHERE%20A%20IS%20NOT%20NULL&gid=1842117218&headers=1'
+      );
+      query.send(handleQueryResponse);
+    }
+
+    function handleQueryResponse(response) {
+      if (response.isError()) {
+        console.error('Error querying data: ' + response.getMessage());
+        return;
+      }
+      const data = response.getDataTable();
+      console.log("Total Rows:", data.getNumberOfRows()); // Debug line
+
+      players = [];
+      for (let i = 0; i < data.getNumberOfRows(); i++) {
+        players.push({
+          name: data.getValue(i, 0),
+          logo: data.getValue(i, 1),
+          finishes: data.getValue(i, 2),
+          rank: data.getValue(i, 3),
+          contrib: data.getValue(i, 4)
+        });
+      }
+
+      if (players.length) showPlayer(0);
+    }
+
+    function showPlayer(index) {
+      const player = players[index];
+      document.getElementById('team-logo').src = player.logo;
+      document.getElementById('player-name').textContent = player.name;
+      document.getElementById('finishes-val').textContent = player.finishes;
+      document.getElementById('mvp-val').textContent = '#' + player.rank;
+      let contribText = player.contrib;
+      if (typeof contribText === 'number') {
+        contribText += '%';
+      } else if (!contribText.toString().includes('%')) {
+        contribText += '%';
+      }
+      document.getElementById('contrib-val').textContent = contribText;
+
+      const leftCont = document.getElementById('left-container');
+      const statsCards = document.querySelectorAll('.stat-card');
+
+      // Start fresh
+      leftCont.classList.remove('fade-out');
+      leftCont.classList.add('fade-in');
+
+      statsCards.forEach(card => {
+        card.classList.remove('slide-in', 'slide-out');
+        card.style.opacity = 0;
+        card.style.transform = 'translateX(-100%)';
+      });
+
+      // Slide in stat cards
+      setTimeout(() => statsCards[0].classList.add('slide-in'), 1000);
+      setTimeout(() => statsCards[1].classList.add('slide-in'), 1500);
+      setTimeout(() => statsCards[2].classList.add('slide-in'), 2000);
+
+      // Slide out stat cards after 20s
+      setTimeout(() => {
+        statsCards.forEach(card => {
+          card.classList.remove('slide-in');
+          card.classList.add('slide-out');
+        });
+      }, 20000);
+
+      // Fade out logo/player name
+      setTimeout(() => {
+        leftCont.classList.remove('fade-in');
+        leftCont.classList.add('fade-out');
+      }, 20500);
+
+      // Start next player after 24s
+      setTimeout(() => {
+        statsCards.forEach(card => {
+          card.classList.remove('slide-out');
+          card.style.opacity = 0;
+          card.style.transform = 'translateX(-100%)';
+        });
+        leftCont.classList.remove('fade-out');
+        showPlayer((index + 1) % players.length);
+      }, 24000);
+    }
+  </script>
+
+  <style>
+    html, body { margin: 0; padding: 0; }
+    body { background: #FFFFFF; }
+
+    #mvp-card {
+      width: 1280px;
+      height: 720px;
+      display: flex;
+      font-family: 'Oswald', sans-serif;
+    }
+
+    #left-container {
+      width: 30%;
+      height: 40%;
+      display: flex;
+      flex-direction: column;
+      margin-top: 155px;
+      margin-left: 50px;
+      justify-content: space-between;
+      opacity: 0;
+    }
+
+    #logo-container {
+      background: #ffffff;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #logo-container img {
+      max-width: 90%;
+      max-height: 90%;
+    }
+
+    #player-name {
+      background: linear-gradient(to bottom, #1b1b1b 80%, #1b1b1b 100%);
+      color: #ffffff;
+      font-size: 32px;
+      text-align: center;
+      padding: 10px;
+      text-transform: uppercase;
+    }
+
+    #stats-section {
+      width: 60%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-left: 40px;
+    }
+
+    .stat-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #1b1b1b;
+      border-radius: 0 0px 0px 0;
+      margin-bottom: 20px;
+      height: 100px;
+      width: 400px;
+      padding: 0 25px;
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: 35px;
+      letter-spacing: 1.5px;
+      font-weight: bold;
+      color: white;
+      opacity: 0;
+      transform: translateX(-100%);
+      animation-fill-mode: forwards;
+    }
+
+    .stat-label {
+      background: #1b1b1b;
+      color: #FFFFFF;
+      font-size: 35px;
+      text-transform: uppercase;
+      padding: 10px 20px;
+      border-top-left-radius: 5px;
+      border-bottom-left-radius: 5px;
+      flex: 1;
+    }
+
+    .stat-value {
+      background: #00a2ff;
+      color: #000000;
+      font-size: 35px;
+      padding: 10px 30px;
+      border-top-right-radius: 0px;
+      border-bottom-right-radius: 0px;
+      min-width: 50px;
+      text-align: center;
+      font-weight: bold;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(-100%); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes slideOut {
+      from { transform: translateX(0); opacity: 1; }
+      to   { transform: translateX(100%); opacity: 0; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    @keyframes fadeOut {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+
+    .stat-card.slide-in {
+      animation: slideIn 0.5s forwards ease;
+    }
+
+    .stat-card.slide-out {
+      animation: slideOut 0.5s forwards ease;
+    }
+
+    #left-container.fade-in {
+      animation: fadeIn 1s forwards;
+    }
+
+    #left-container.fade-out {
+      animation: fadeOut 1s forwards;
+    }
+  </style>
+
+  <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;700&family=Bebas+Neue&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div id="mvp-card">
+    <div id="left-container">
+      <div id="logo-container">
+        <img id="team-logo" src="" alt="Team Logo">
+      </div>
+      <div id="player-name"></div>
+    </div>
+    <div id="stats-section">
+      <div class="stat-card">
+        <div class="stat-label">FINISHES</div>
+        <div class="stat-value" id="finishes-val"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">MVP RANK</div>
+        <div class="stat-value" id="mvp-val"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">FIN. CONTRIB.</div>
+        <div class="stat-value" id="contrib-val"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

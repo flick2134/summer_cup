@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stream Overlay</title>
+  <style>
+    @font-face {
+      font-family: 'Norwester';
+      src: url('norwester.otf') format('opentype');
+    }
+
+    html, body {
+      font-family: 'Norwester';
+      margin: 0;
+      padding: 0;
+      background: transparent;
+    }
+
+    #overlay {
+      display: flex;
+      align-items: center;
+      position: fixed;
+      bottom: 30px;
+      left: 30px;
+      height: 120px;
+      animation: overlayCycle 60s linear infinite;
+    }
+
+    .right-panel {
+      display: flex;
+      flex-direction: row;
+      background: linear-gradient(to right, #002f5f, #001a3f);
+      color: white;
+      border-radius: 0px;
+      clip-path: inset(0 100% 0 0);
+      animation: panelSwipeIn 0.5s ease-in forwards;
+      animation-delay: 0.3s;
+      animation-fill-mode: forwards;
+    }
+
+    .right-panel.hide {
+      animation: panelSwipeOut 0.5s ease-in forwards;
+    }
+
+    .logo-box {
+      width: 120px;
+      background: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      transform: translateX(-100px);
+      animation: logoBoxSlideIn 0.5s ease-in forwards;
+      animation-delay: 0.9s;
+      animation-fill-mode: forwards;
+    }
+
+    .logo-box.hide {
+      animation: logoBoxSlideOut 0.5s ease-in forwards;
+    }
+
+    .logo-box img {
+      max-width: 90%;
+      max-height: 90%;
+      opacity: 0;
+      animation: logoImageFadeIn 0.5s ease-in forwards;
+      animation-delay: 1.3s;
+      animation-fill-mode: forwards;
+    }
+
+    .logo-box img.hide {
+      animation: logoImageFadeOut 0.5s ease-in forwards;
+    }
+
+    .info-panel {
+      width: 150px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 20px;
+    }
+
+    .stage-box,
+    .map-box,
+    .match-no {
+      background: white;
+      color: black;
+      font-weight: bold;
+      padding: 4px 12px;
+      margin: 4px 0;
+      transform: translateY(20px);
+      opacity: 0;
+      animation: boxSlideUpIn 0.5s ease-in forwards;
+      animation-delay: 1.6s;
+      animation-fill-mode: forwards;
+    }
+
+    .stage-box.hide,
+    .map-box.hide,
+    .match-no.hide {
+      animation: boxSlideUpOut 0.5s ease-in forwards;
+    }
+
+    .match-no {
+      background: transparent;
+      color: white;
+      font-size: 24px;
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      width: 100%;
+      text-align: center;
+    }
+
+    @keyframes overlayCycle {
+      0% { opacity: 0; }
+      2% { opacity: 1; }
+      48% { opacity: 1; }
+      50% { opacity: 0; }
+      52% { opacity: 1; }
+      98% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    @keyframes panelSwipeIn {
+      to {
+        clip-path: inset(0 0% 0 0);
+      }
+    }
+
+    @keyframes panelSwipeOut {
+      to {
+        clip-path: inset(0 100% 0 0);
+      }
+    }
+
+    @keyframes logoBoxSlideIn {
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes logoBoxSlideOut {
+      to {
+        transform: translateX(-100px);
+        opacity: 0;
+      }
+    }
+
+    @keyframes logoImageFadeIn {
+      to { opacity: 1; }
+    }
+
+    @keyframes logoImageFadeOut {
+      to { opacity: 0; }
+    }
+
+    @keyframes boxSlideUpIn {
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes boxSlideUpOut {
+      to {
+        transform: translateY(20px);
+        opacity: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <div class="right-panel" id="panel">
+      <div class="logo-box" id="logoBox">
+        <img id="logo" src="" alt="Tournament Logo" />
+      </div>
+      <div class="info-panel">
+        <div class="stage-box" id="stage">STAGE</div>
+        <div class="match-no" id="match">MATCH-?</div>
+        <div class="map-box" id="map">MAP</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SHEET_GVIZ_URL =
+      'https://docs.google.com/spreadsheets/d/1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A/gviz/tq?tqx=out:json&gid=1827790098';
+
+    async function fetchSheet() {
+      try {
+        const res = await fetch(SHEET_GVIZ_URL);
+        const text = await res.text();
+        const json = JSON.parse(text.substring(47).slice(0, -2));
+        const row = json.table.rows[0].c;
+
+        const logo = row[0]?.v || '';
+        const stage = row[1]?.v || '';
+        const match = row[2]?.v || '';
+        const map = row[3]?.v || '';
+
+        document.getElementById('logo').src = logo;
+        document.getElementById('stage').innerText = stage;
+        document.getElementById('match').innerText = match;
+        document.getElementById('map').innerText = map;
+      } catch (error) {
+        console.error('Error fetching sheet data:', error);
+      }
+    }
+
+    fetchSheet();
+
+    function toggleVisibility() {
+      const elements = [
+        document.getElementById('panel'),
+        document.getElementById('logoBox'),
+        document.getElementById('logo'),
+        document.getElementById('stage'),
+        document.getElementById('match'),
+        document.getElementById('map')
+      ];
+      elements.forEach(el => el.classList.add('hide'));
+      setTimeout(() => {
+        elements.forEach(el => el.classList.remove('hide'));
+      }, 3000);
+    }
+
+    setInterval(toggleVisibility, 30000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Squad Wipe Overlay</title>
+  <style>
+    @font-face {
+      font-family: 'MicrogrammaD';
+      src: url('Microgramma D Extended Bold.otf') format('opentype');
+    }
+    @font-face {
+      font-family: 'AmericanCaptain';
+      src: url('American Captain Patrius 02 FRE.otf') format('opentype');
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      font-family: 'MicrogrammaD', sans-serif;
+    }
+
+    #overlay {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
+    .card {
+      position: relative;
+      display: flex;
+      overflow: hidden;
+      transform-origin: left center;
+      background: linear-gradient(135deg, #00398f, #0081cc);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      max-width: 420px;
+      animation-duration: 0.5s;
+      animation-fill-mode: forwards;
+      z-index: 10;
+    }
+
+    @keyframes wipe-in { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @keyframes wipe-out { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+    @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+    .left-section {
+      background: white;
+      min-width: 100px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 12px;
+      opacity: 0;
+      z-index: 15;
+    }
+
+    .logo {
+      width: 76px;
+      height: 76px;
+      object-fit: cover;
+      margin-bottom: 6px;
+    }
+
+    .team-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: black;
+      text-align: center;
+    }
+
+    .middle-section {
+      width: 16px;
+    }
+
+    .right-section {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      opacity: 0;
+      z-index: 15;
+    }
+
+    .finishes-box {
+      background: white;
+      padding: 6px 12px;
+      border-radius: 0px;
+      display: inline-block;
+      margin-bottom: 8px;
+    }
+
+    .finishes {
+      font-size: 26px;
+      font-weight: 700;
+      display: inline-block;
+      font-family: 'AmericanCaptain','MicrogrammaD',sans-serif;
+
+      background-image: linear-gradient(to bottom, #000153, #0039a3);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .status {
+      font-size: 14px;
+      letter-spacing: 2px;
+      font-family: 'AmericanCaptain','MicrogrammaD',sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay"></div>
+
+  <script>
+    const SHEET_ID = '1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A';
+    const GID = '38258553';
+
+    const teamStatus = new Map();
+    const pendingWipes = [];
+    let isAnimating = false;
+
+    async function fetchAndQueueEliminatedTeams() {
+      try {
+        const url =
+          `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?` +
+          `gid=${GID}&tq=${encodeURIComponent('SELECT *')}&tqx=out:json`;
+        const res = await fetch(url, { cache: 'no-store' });
+        const txt = await res.text();
+        const json = JSON.parse(txt.match(/\{[\s\S]*\}/)[0]);
+        const rows = json.table.rows || [];
+
+        for (let i = 0; i < rows.length; i++) {
+          const cells = rows[i].c || [];
+          const name = cells[0]?.v || '';
+          const logo = cells[1]?.v || '';
+          const finishes = cells[2]?.v || 0;
+          const aliveCount = cells.slice(3, 7)
+            .filter(x => x?.v?.toString().toLowerCase() === 'alive')
+            .length;
+          const currentState = aliveCount === 0 ? 'dead' : 'alive';
+          if (!name) continue;
+
+          const prevState = teamStatus.get(name) || 'alive';
+
+          if (currentState === 'dead' && prevState !== 'dead') {
+            pendingWipes.push({ name, logo, finishes });
+          }
+          teamStatus.set(name, currentState);
+        }
+
+        if (!isAnimating && pendingWipes.length > 0) {
+          runWipeQueue();
+        }
+      } catch (err) {
+        console.error('Error fetching sheet data:', err);
+      }
+    }
+
+    async function runWipeQueue() {
+      isAnimating = true;
+      while (pendingWipes.length > 0) {
+        const { name, logo, finishes } = pendingWipes.shift();
+        await playAnimation(name, logo, finishes);
+      }
+      isAnimating = false;
+    }
+
+    async function playAnimation(name, logo, finishes) {
+      const overlay = document.getElementById('overlay');
+      overlay.innerHTML = `
+        <div class="card" id="wipeCard">
+          <div class="left-section" id="leftSection">
+            <img class="logo" src="${logo}" onerror="this.style.display='none'">
+            <div class="team-name">${name}</div>
+          </div>
+          <div class="middle-section"></div>
+          <div class="right-section" id="rightSection">
+            <div class="finishes-box">
+              <div class="finishes">${finishes} FINISH${finishes === 1 ? '' : 'ES'}</div>
+            </div>
+            <div class="status">TEAM ELIMINATED</div>
+          </div>
+        </div>`;
+
+      const card = document.getElementById('wipeCard');
+      const leftSection = document.getElementById('leftSection');
+      const rightSection = document.getElementById('rightSection');
+
+      // 1) Swipe in card
+      card.style.animationName = 'wipe-in';
+      await new Promise(r => setTimeout(r, 500));
+
+      // 2) Show left section immediately
+      leftSection.style.animation = 'fade-in 0.3s forwards';
+
+      // 3) Fade in right section after left is visible
+      rightSection.style.animation = 'fade-in 0.3s forwards';
+      await new Promise(r => setTimeout(r, 300));
+
+      // 4) Wait 3 seconds
+      await new Promise(r => setTimeout(r, 3000));
+
+      // 5) Fade out right section
+      rightSection.style.animation = 'fade-out 0.3s forwards';
+      await new Promise(r => setTimeout(r, 300));
+
+      // 6) Fade out left section
+      leftSection.style.animation = 'fade-out 0.3s forwards';
+      await new Promise(r => setTimeout(r, 300));
+
+      // 7) Swipe out card
+      card.style.animationName = 'wipe-out';
+      await new Promise(r => setTimeout(r, 500));
+
+      overlay.innerHTML = '';
+    }
+
+    setInterval(fetchAndQueueEliminatedTeams, 3000);
+    fetchAndQueueEliminatedTeams();
+  </script>
+</body>
+</html>

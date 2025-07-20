@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>WWCD Percentages</title>
+  <style>
+    @font-face {
+      font-family: 'MicrogrammaD';
+      src: url('Microgramma D Extended Bold.otf') format('opentype');
+    }
+
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: MicrogrammaD, 'Arial', sans-serif;
+      color: #fff;
+    }
+
+    .wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 24px;
+      padding: 24px;
+      flex-wrap: wrap;
+      transition: all 0.5s ease;
+    }
+
+    .wwcd-card {
+      background: #0f0f0f;
+      border-radius: 0px;
+      padding: 12px;
+      width: 200px;
+      display: flex;
+      flex-direction: column;
+      animation: fadeInTop 0.6s ease-out;
+    }
+
+    .fade-out {
+      animation: fadeOutBottom 0.5s ease forwards;
+    }
+
+    @keyframes fadeInTop {
+      0% { opacity: 0; transform: translateY(-20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeOutBottom {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(20px); }
+    }
+
+    .wwcd-card-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .team-logo-wrapper {
+      background: white;
+      padding: 6px;
+      border-radius: 0px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .team-logo {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+    }
+
+    .team-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .team-name {
+      text-align: center;
+      margin-bottom: 6px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      font-size: 18px;
+    }
+
+    .status-circles {
+      display: flex;
+      gap: 6px;
+    }
+
+    .status-circles .circle {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: white;
+    }
+
+    .status-circles .dead {
+      background: red;
+    }
+
+    .wwcd-bottom {
+      background: #0046c7;
+      margin-top: 10px;
+      padding: 8px 10px;
+      font-size: 10px;
+      font-weight: bold;
+      border-radius: 0px;
+      letter-spacing: 1px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .wwcd-bottom .percent {
+      background: #0b0047;
+      padding: 4px 6px;
+      border-radius: 0px;
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper" id="wwcd-container"></div>
+
+  <script>
+    const SHEET_ID = '1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A';
+    const GID = '38258553';
+    const INTERVAL = 1000;
+    const shownTeams = new Map(); // teamName -> DOM element
+
+    async function fetchData() {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${GID}&_=${Date.now()}`;
+      try {
+        const res = await fetch(url);
+        const text = await res.text();
+        const json = JSON.parse(text.match(/\{.*\}/s)[0]);
+        const rows = json.table.rows;
+
+        const teams = rows.map(row => {
+          const name = row.c[0]?.v?.trim() || '';
+          const logo = row.c[1]?.v || '';
+          const fin = Number(row.c[2]?.v) || 0;
+          const stats = [3, 4, 5, 6].map(i => (row.c[i]?.v || '').toString().toLowerCase());
+          const alive = stats.filter(s => s === 'alive').length;
+          const deadAll = alive === 0;
+          return { name, logo, fin, stats, alive, deadAll };
+        }).filter(t => t.name);
+
+        const aliveTeams = teams.filter(t => !t.deadAll);
+        const container = document.getElementById('wwcd-container');
+
+        if (aliveTeams.length > 4) {
+          container.innerHTML = '';
+          shownTeams.clear();
+          return;
+        }
+
+        const totalAlivePlayers = aliveTeams.reduce((sum, t) => sum + t.alive, 0);
+
+        // Remove eliminated or removed teams
+        for (const [name, el] of shownTeams.entries()) {
+          const stillAlive = aliveTeams.find(t => t.name === name);
+          if (!stillAlive) {
+            el.classList.add('fade-out');
+            shownTeams.delete(name);
+            setTimeout(() => el.remove(), 500);
+          }
+        }
+
+        const displayTeams = aliveTeams.slice(0, 4);
+
+        displayTeams.forEach(team => {
+          const wwcd = totalAlivePlayers ? ((team.alive / totalAlivePlayers) * 100).toFixed(1) : '0.0';
+
+          const indicators = team.stats.map(status =>
+            `<div class="circle ${status === 'dead' ? 'dead' : ''}"></div>`
+          ).join('');
+
+          if (!shownTeams.has(team.name)) {
+            const card = document.createElement('div');
+            card.className = 'wwcd-card';
+            card.innerHTML = `
+              <div class="wwcd-card-content">
+                <div class="team-logo-wrapper">
+                  <img src="${team.logo}" class="team-logo" onerror="this.style.display='none'">
+                </div>
+                <div class="team-info">
+                  <div class="team-name">${team.name}</div>
+                  <div class="status-circles">${indicators}</div>
+                </div>
+              </div>
+              <div class="wwcd-bottom">
+                <span>WWCD: <span class="percent">${wwcd}%</span></span>
+                <span>FIN: ${team.fin}</span>
+              </div>
+            `;
+            container.appendChild(card);
+            shownTeams.set(team.name, card);
+          } else {
+            const card = shownTeams.get(team.name);
+            card.querySelector('.status-circles').innerHTML = indicators;
+            card.querySelector('.wwcd-bottom').innerHTML = `
+              <span>WWCD: <span class="percent">${wwcd}%</span></span>
+              <span>FIN: ${team.fin}</span>
+            `;
+          }
+        });
+      } catch (err) {
+        console.error('Fetch error:', err);
+      }
+    }
+
+    fetchData();
+    setInterval(fetchData, INTERVAL);
+  </script>
+</body>
+</html>

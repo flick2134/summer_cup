@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tournament Points Table</title>
+  <meta name="viewport" content="width=1165, initial-scale=1.0">
+
+  <!-- Preload & lock fonts -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto+Condensed:wght@400;700&display=swap" as="style" onload="this.rel='stylesheet'">
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Roboto+Condensed:wght@400;700&display=swap" rel="stylesheet">
+  </noscript>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      font-family: 'Roboto Condensed', sans-serif;
+    }
+    #scoreboard {
+      width: 900px;
+      margin: 20px auto;
+      position: relative;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transition: opacity 1s ease;
+      opacity: 0;
+    }
+    table.visible {
+      opacity: 1;
+      z-index: 2;
+    }
+    table.hidden {
+      opacity: 0;
+      z-index: 1;
+    }
+
+    thead th {
+      background: #1b1b1b;
+      color: #ffffff;
+      font-family: 'Bebas Neue', cursive;
+      font-size: 22px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      padding: 12px 8px;
+      border-bottom: 2px solid #000000;
+    }
+    thead th:nth-child(1) { width: 5%; text-align: center; }
+    thead th:nth-child(2) { width: 35%; }
+    thead th:nth-child(3),
+    thead th:nth-child(4),
+    thead th:nth-child(5),
+    thead th:nth-child(6),
+    thead th:nth-child(7) { width: 10%; text-align: center; }
+
+    tbody td {
+      padding: 8px 10px;
+      font-size: 20px;
+      text-align: center;
+      vertical-align: middle;
+    }
+    tbody tr:nth-child(even) { background: #f2f2f2; }
+    tbody tr:nth-child(odd)  { background: #e6e6e6; }
+
+    td.team-cell {
+      display: flex;
+      align-items: center;
+      justify-content: left;
+      font-family: 'Bebas Neue', cursive;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-weight: bold;
+    }
+    td.team-cell img {
+      height: 24px;
+      width: 24px;
+      margin-right: 8px;
+    }
+    tbody td:nth-child(7) {
+  font-weight: bold;
+}
+#tableTop tbody tr:first-child {
+  background: linear-gradient(to right, #379ad4, #8cc8f0); /* for gold */
+  color: #000000; /* Optional: make text readable on gold */
+}
+tbody td:first-child {
+  font-weight: bold;
+}
+  </style>
+</head>
+<body>
+  <div id="scoreboard">
+    <table id="tableTop" class="hidden">
+      <thead>
+        <tr>
+          <th>#</th><th>TEAM NAME</th><th>CHICKEN</th>
+          <th>MAT. PLYD</th><th>POS. PTS</th><th>FIN. PTS</th><th>TOT. PTS</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <table id="tableBottom" class="hidden">
+      <thead>
+        <tr>
+          <th>#</th><th>TEAM NAME</th><th>CHICKEN</th>
+          <th>MAT. PLYD</th><th>POS. PTS</th><th>FIN. PTS</th><th>TOT. PTS</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <script>
+    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.setOnLoadCallback(init);
+
+    const sheetId      = '1uhcK932M28ZYpuYUCuezL7PEcuiA9OE8G1J5ZNYkQ_A';
+    const gid          = '952608321';
+    const refreshEvery = 5000;
+    const switchEvery  = 45000;
+    let showingTop     = true;
+
+    function init() {
+      updateData().then(() => showTable(true));
+      setInterval(updateData, refreshEvery);
+      setInterval(() => showTable(!showingTop), switchEvery);
+    }
+
+    async function updateData() {
+      const q = encodeURIComponent('SELECT A,B,C,D,E,F');
+      const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?gid=${gid}&headers=1&tq=${q}`;
+      const res = await fetch(url);
+      const txt = await res.text();
+      const json = JSON.parse(txt.match(/google\.visualization\.Query\.setResponse\(([\s\S]+)\)/)[1]);
+      const rows = json.table.rows.map(r => ({
+        team:  r.c[0]?.v || '',
+        logo:  r.c[1]?.v || '',
+        wwcd:  +r.c[2]?.v || 0,
+        mat:   +r.c[3]?.v || 0,
+        pos:   +r.c[4]?.v || 0,
+        fin:   +r.c[5]?.v || 0,
+        total: (+r.c[4]?.v || 0) + (+r.c[5]?.v || 0)
+      }));
+
+      rows.sort((a, b) =>
+        b.total - a.total ||
+        b.pos - a.pos ||
+        b.wwcd - a.wwcd
+      );
+
+      document.querySelector('#tableTop tbody').innerHTML    = renderRows(rows.slice(0, 10), 0);
+      document.querySelector('#tableBottom tbody').innerHTML = renderRows(rows.slice(10, 20), 10);
+    }
+
+    function renderRows(arr, offset) {
+  return arr.map((r, i) => {
+    const rank = i + offset;
+    let rowStyle = '';
+    return `
+      <tr ${rowStyle}>
+        <td>${rank + 1}</td>
+        <td class="team-cell">
+          <img src="${r.logo}" alt="">${r.team}
+        </td>
+        <td>${r.wwcd > 0 ? `<img src="https://i.postimg.cc/TP16VCjK/2007819-200.png" style="height:22px; vertical-align:middle;"> x${r.wwcd}` : ''}</td>
+        <td>${r.mat}</td>
+        <td>${r.pos}</td>
+        <td>${r.fin}</td>
+        <td>${r.total}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+    function showTable(showTop) {
+      showingTop = showTop;
+      const t = document.getElementById('tableTop');
+      const b = document.getElementById('tableBottom');
+      if (showTop) {
+        t.classList.add('visible'); t.classList.remove('hidden');
+        b.classList.add('hidden');  b.classList.remove('visible');
+      } else {
+        b.classList.add('visible'); b.classList.remove('hidden');
+        t.classList.add('hidden');  t.classList.remove('visible');
+      }
+    }
+  </script>
+</body>
+</html>

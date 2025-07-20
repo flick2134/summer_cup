@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Live Team Status</title>
+  <style>
+    @font-face {
+      font-family: 'MicrogrammaD';
+      src: url('Microgramma D Extended Bold.otf') format('opentype');
+    }
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: 'MicrogrammaD', Arial, sans-serif;
+      font-size: 12px;
+      color: #fff;
+      letter-spacing: 1px;
+    }
+    /* HEADER */
+    .header {
+      display: flex; align-items: center;
+      padding: 4px 8px; font-weight: bold;
+      background: #754600; opacity: 100;
+      margin: 0 8px 4px; border-radius: 0;
+    }
+    .header .left { flex: 1; display: flex; align-items: center; }
+    .header .rank { width: 24px; text-align: right; margin-right: 8px; }
+    .header .placeholder { width: 24px; height: 24px; margin-right: 6px; }
+    .header .name {
+      flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      letter-spacing: 3px;
+    }
+    .header .fin { width: 36px; text-align: center; margin: 0 16px 0 8px; }
+    .header .status-header { width: 64px; }
+
+    /* CONTAINER */
+    .container {
+      padding: 0 8px 8px;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+
+    /* TEAM ROWS */
+    .team {
+      display: flex; align-items: center;
+      padding: 4px 8px; background: linear-gradient( #661800, #cf1800);
+    }
+    .team:nth-child(even) {
+      background: linear-gradient( #661800, #cf1800);
+    }
+    /* fully eliminated: grayscale everything */
+    .team.deadAll {
+      filter: grayscale(100%);
+      background: rgb(49, 49, 49) !important;
+    }
+    .team.deadAll .name,
+    .team.deadAll .rank,
+    .team.deadAll .fin,
+    .team.deadAll .status,
+    .team.deadAll .dot {
+      filter: grayscale(100%);
+    }
+    .team .left {
+      flex: 1; display: flex; align-items: center;
+    }
+    .team .rank {
+      width: 24px; text-align: right; margin-right: 8px; font-weight: bold;
+    }
+    .team .placeholder,
+    .team img {
+      width: 24px; height: 24px; object-fit: cover; border-radius: 3px;
+      margin-right: 6px;
+    }
+    .team .name {
+      flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      background-color: #000000; padding: 2px 6px; border-radius: 0px;
+      letter-spacing: 3px; text-align: center;
+    }
+    .team .fin {
+      width: 36px; text-align: center; margin: 0 16px 0 8px; font-weight: bold;
+    }
+    .team .status {
+      width: 64px; display: flex; gap: 4px; align: right;
+    }
+    .dot {
+      display: inline-block; width: 5px; height: 16px; background: #444;
+    }
+    .dot.alive { background: #ffffff; }
+    .dot.dead  { background: #ffffff6e; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="left">
+      <div class="rank">#</div>
+      <div class="placeholder"></div>
+      <div class="name">Team</div>
+    </div>
+    <div class="fin">Fin.</div>
+    <div class="status-header">Status</div>
+  </div>
+
+  <div class="container" id="container"></div>
+
+  <script>
+    const SHEET_ID = '1AHt07ap_8bMBxDM-ZUdlNYyRCiNqJOdA9mgolGRu2Ho';
+    const GID = '38258553';
+    const INTERVAL = 1000;
+    let eliminationOrder = [];
+  
+    async function fetchAndRender() {
+      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?gid=${GID}&_=${Date.now()}`;
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        const text = await res.text();
+        const json = JSON.parse(text.match(/\{.*\}/s)[0]);
+        const rows = json.table.rows || [];
+  
+        // Build team objects
+        const teams = rows.map(r => {
+          const name = r.c[0]?.v?.trim() || '';
+          const logo = r.c[1]?.v || '';
+          const fin = Number(r.c[2]?.v) || 0;
+          const stats = [3, 4, 5, 6].map(i =>
+            (r.c[i]?.v || '').toString().trim().toLowerCase()
+          );
+          const alive = stats.filter(s => s === 'alive').length;
+          const deadAll = alive === 0;
+          return { name, logo, fin, stats, alive, deadAll };
+        }).filter(t => t.name);
+  
+        // Update elimination order
+        const currentDead = teams.filter(t => t.deadAll).map(t => t.name);
+        eliminationOrder = eliminationOrder.filter(name => currentDead.includes(name));
+        currentDead.forEach(name => {
+          if (!eliminationOrder.includes(name)) {
+            eliminationOrder.push(name);
+          }
+        });
+  
+        // Sort teams
+        const liveTeams = teams.filter(t => !t.deadAll).sort((a, b) => b.alive - a.alive);
+        const deadTeams = eliminationOrder.map(name => teams.find(t => t.name === name)).filter(t => t);
+        const fullOrder = [...liveTeams, ...deadTeams.reverse()];
+  
+        // Render HTML
+        document.getElementById('container').innerHTML = fullOrder.map((t, i) => {
+          const dots = t.stats.map(s =>
+            `<span class="dot ${s === 'alive' ? 'alive' : 'dead'}"></span>`
+          ).join('');
+          return `
+            <div class="team${t.deadAll ? ' deadAll' : ''}">
+              <div class="left">
+                <div class="rank">${i + 1}</div>
+                ${t.logo
+                  ? `<img src="${t.logo}" onerror="this.style.display='none'">`
+                  : `<div class="placeholder"></div>`}
+                <div class="name">${t.name}</div>
+              </div>
+              <div class="fin">${t.fin}</div>
+              <div class="status">${dots}</div>
+            </div>
+          `;
+        }).join('');
+      } catch (e) {
+        console.error('Error fetching/rendering:', e);
+      }
+    }
+  
+    fetchAndRender();
+    setInterval(fetchAndRender, INTERVAL);
+  </script>
+  
+</body>
+</html>
